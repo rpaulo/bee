@@ -146,6 +146,9 @@ def bee_start_vm(args):
 def bee_modify_vm(args):
     pass
 
+def bee_stop_vm(args):
+    pass
+
 def bee_destroy_vm(args):
     pass
 
@@ -175,10 +178,15 @@ def bee_main():
             help='Start a bhyve VM')
     parser_start.add_argument('name')
     parser_start.set_defaults(func=bee_start_vm)
+    parser_stop = subparsers.add_parser('stop',
+            help='Stopa bhyve VM')
+    parser_stop.set_defaults(func=bee_stop_vm)
     parser_destroy = subparsers.add_parser('destroy',
             help='Destroy a bhyve VM')
+    parser_destroy.set_defaults(func=bee_destroy_vm)
     parser_modify = subparsers.add_parser('modify',
             help='Modify a bhyve VM')
+    parser_modify.set_defaults(func=bee_modify_vm)
     parser_list = subparsers.add_parser('list',
             help='List available VMs')
     parser_list.add_argument('-v', help='Verbose mode', action='store_true')

@@ -1,0 +1,137 @@
+#!/usr/bin/env python 
+#
+# Copyright (c) 2013 Rui Paulo <rpaulo@FreeBSD.org>
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+import argparse  
+import subprocess
+
+from BeeDatabase import *
+
+def parse_create_vm(args):
+    # TODO: validate arguments
+    vm = args.name
+    db.vm_create(vm)
+    db.vm_add_pci(vm, "0:0", "hostbridge", "")
+    db.vm_add_pci(vm, "31", "uart", "stdio", legacy=True)
+    slot = 2
+    if args.d != None:
+        db.vm_add_pci(vm, str(slot), "ahci-hd", args.d)
+        slot += 1
+    if args.D != None:
+        db.vm_add_pci(vm, str(slot), "ahci-cd", args.D)
+        slot += 1
+    if args.n != None:
+        db.vm_add_pci(vm, str(slot), "virtio-net", "", options=args.n)
+        slot += 1
+
+       
+def parse_list_vm(args):
+    for row in db.vm_list():
+        print "%s (%s)" % (row['name'], row['type'])
+        if args.v:
+            print "\tCreated " + row['cdate']
+        print "\t%d MB RAM" % (row['ram'])
+        for rowp in db.vm_list_pci(row['name']):
+            if rowp['driver'] == "ahci-hd":
+                print "\tDisk " + rowp['config']
+            if rowp['driver'] == "virtio-net":
+                print "\tVirtIO network " + rowp['options']
+
+def parse_start_vm(args):
+    '''
+    Parses arguments for the start verb.
+    '''
+    bhyveload_args = ['bhyveload']
+    bhyve_args = ['bhyve']
+    bhyvectl_args = ['bhyvectl']
+    vm = args.name
+    row = db.vm_lookup(vm)
+    if row == None:
+        print "Could not find VM '%s'" % vm
+        return
+    bhyveload_args.append('-m')
+    bhyveload_args.append(str(row['ram']))
+    bhyve_args.append('-m')
+    bhyve_args.append(str(row['ram']))
+    bhyve_args.append('-c')
+    bhyve_args.append(str(row['cpus']))
+    bhyve_args.append('-AIHP')
+    for row in db.vm_list_pci(vm):
+        slot = "%s,%s" % (row['slot'], row['driver'])
+        if row['config'] != "":
+            slot += ",%s" % row['config']
+        if row['legacy'] == "True":
+            bhyve_args.append('-S')
+        else:
+            bhyve_args.append('-s')
+        bhyve_args.append(slot)
+        if row['driver'] == "ahci-hd":
+            bhyveload_args.append('-d')
+            bhyveload_args.append(row['config'])
+    bhyveload_args.append(vm)
+    bhyve_args.append(vm)
+    bhyvectl_args.append('--destroy')
+    bhyvectl_args.append('--vm=%s' % vm)
+    subprocess.call(bhyvectl_args)
+    print bhyve_args
+    subprocess.call(bhyveload_args)
+    subprocess.call(bhyve_args)
+
+
+if __name__ == "__main__":
+    db = BeeDatabase()
+    parser = argparse.ArgumentParser(description='bhyve configuration tool')
+    parser.add_argument('-d', help='Enable debugging', action='store_true')
+    subparsers = parser.add_subparsers()
+    parser_create = subparsers.add_parser('create', 
+            help='Create a new bhyve VM')
+    parser_create.add_argument('-c', metavar='CPUs',
+            help='Number of CPUs')
+    parser_create.add_argument('-d', metavar='disk',
+            help='File to be used as hard disk (e.g.: "disk0.img,20G")')
+    parser_create.add_argument('-D', metavar='DVD',
+            help='ISO file to be used as DVD')
+    parser_create.add_argument('-m', metavar='RAM',
+            help='Amount of RAM (e.g.: "1G", "512M")')
+    parser_create.add_argument('-t', metavar='type',
+            help='Virtual machine type (default "FreeBSD")')
+    parser_create.add_argument('-n', metavar='net',
+            help='network type (e.g.: "auto-bridge")')
+    parser_create.add_argument('name', help='VM name')
+    parser_create.set_defaults(func=parse_create_vm)
+    parser_start = subparsers.add_parser('start',
+            help='Start a bhyve VM')
+    parser_start.add_argument('name')
+    parser_start.set_defaults(func=parse_start_vm)
+    subparsers.add_parser('destroy',
+            help='Destroy a bhyve VM')
+    subparsers.add_parser('modify',
+            help='Modify a bhyve VM')
+    parser_list = subparsers.add_parser('list',
+            help='List available VMs')
+    parser_list.add_argument('-v', help='Verbose mode', action='store_true')
+    parser_list.set_defaults(func=parse_list_vm)
+    args = parser.parse_args()
+    args.func(args)

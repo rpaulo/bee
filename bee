@@ -26,28 +26,53 @@
 
 import argparse  
 import subprocess
+import re
 
 from BeeDatabase import *
 
-def parse_create_vm(args):
-    # TODO: validate arguments
+def bee_create_vm(args):
+    if debug:
+        print args
     vm = args.name
-    db.vm_create(vm)
-    db.vm_add_pci(vm, "0:0", "hostbridge", "")
-    db.vm_add_pci(vm, "31", "uart", "stdio", legacy=True)
+    ram = args.m
+    # Parse forms of RAM like "512", "1G", etc.
+    if ram != None:
+        try:
+            int(ram)
+        except:
+            try:
+                int(ram[0:-1])
+            except:
+                print 'Invalid RAM size: ' + ram
+                return
+            else:
+                suffix = ram[-1]
+                # XXX
+    else:
+        ram = "512"
+    cpus = args.c
+    db.vm_create(vm, ram, cpus, 'freebsd')
+    #
+    # Add basic PCI devices.
+    #
+    db.vm_add_pci(vm, '0:0', 'hostbridge', '')
+    db.vm_add_pci(vm, '31', 'uart', 'stdio', legacy=True)
+    #
+    # Add storage and networking devices.
+    #
     slot = 2
     if args.d != None:
-        db.vm_add_pci(vm, str(slot), "ahci-hd", args.d)
+        db.vm_add_pci(vm, str(slot), 'ahci-hd', args.d)
         slot += 1
     if args.D != None:
-        db.vm_add_pci(vm, str(slot), "ahci-cd", args.D)
+        db.vm_add_pci(vm, str(slot), 'ahci-cd', args.D)
         slot += 1
     if args.n != None:
-        db.vm_add_pci(vm, str(slot), "virtio-net", "", options=args.n)
+        db.vm_add_pci(vm, str(slot), 'virtio-net', '', options=args.n)
         slot += 1
 
        
-def parse_list_vm(args):
+def bee_list_vm(args):
     for row in db.vm_list():
         print "%s (%s)" % (row['name'], row['type'])
         if args.v:
@@ -59,10 +84,28 @@ def parse_list_vm(args):
             if rowp['driver'] == "virtio-net":
                 print "\tVirtIO network " + rowp['options']
 
-def parse_start_vm(args):
-    '''
-    Parses arguments for the start verb.
-    '''
+def bee_create_tap(bridged=False):
+    ifconfigl_args = ['ifconfig', '-l']
+    interfaces = subprocess.check_output(ifconfigl_args).split(' ')
+    for i in interfaces:
+        m = re.match('(\w+)(\d+)', i)
+        name = m.group(1)
+        unit = m.group(2)
+        lastunit = 0
+        if name == 'tap':
+            # XXX reuse holes
+            lastunit = int(unit)
+        if name == 'bridge':
+            pass
+    lastunit += 1
+    ifname = 'tap%d' % lastunit
+    ifconfigc_args = ['ifconfig', ifname, 'create']
+    if subprocess.call(ifconfigc_args) != 0:
+        return None
+    if bridged:
+        pass
+
+def bee_start_vm(args):
     bhyveload_args = ['bhyveload']
     bhyve_args = ['bhyve']
     bhyvectl_args = ['bhyvectl']
@@ -95,12 +138,19 @@ def parse_start_vm(args):
     bhyvectl_args.append('--destroy')
     bhyvectl_args.append('--vm=%s' % vm)
     subprocess.call(bhyvectl_args)
-    print bhyve_args
+    if debug:
+        print bhyve_args
     subprocess.call(bhyveload_args)
     subprocess.call(bhyve_args)
 
+def bee_modify_vm(args):
+    pass
 
-if __name__ == "__main__":
+def bee_destroy_vm(args):
+    pass
+
+def bee_main():
+    global db, debug
     db = BeeDatabase()
     parser = argparse.ArgumentParser(description='bhyve configuration tool')
     parser.add_argument('-d', help='Enable debugging', action='store_true')
@@ -108,7 +158,7 @@ if __name__ == "__main__":
     parser_create = subparsers.add_parser('create', 
             help='Create a new bhyve VM')
     parser_create.add_argument('-c', metavar='CPUs',
-            help='Number of CPUs')
+            help='Number of CPUs', choices=range(1, 129))
     parser_create.add_argument('-d', metavar='disk',
             help='File to be used as hard disk (e.g.: "disk0.img,20G")')
     parser_create.add_argument('-D', metavar='DVD',
@@ -120,18 +170,22 @@ if __name__ == "__main__":
     parser_create.add_argument('-n', metavar='net',
             help='network type (e.g.: "auto-bridge")')
     parser_create.add_argument('name', help='VM name')
-    parser_create.set_defaults(func=parse_create_vm)
+    parser_create.set_defaults(func=bee_create_vm)
     parser_start = subparsers.add_parser('start',
             help='Start a bhyve VM')
     parser_start.add_argument('name')
-    parser_start.set_defaults(func=parse_start_vm)
-    subparsers.add_parser('destroy',
+    parser_start.set_defaults(func=bee_start_vm)
+    parser_destroy = subparsers.add_parser('destroy',
             help='Destroy a bhyve VM')
-    subparsers.add_parser('modify',
+    parser_modify = subparsers.add_parser('modify',
             help='Modify a bhyve VM')
     parser_list = subparsers.add_parser('list',
             help='List available VMs')
     parser_list.add_argument('-v', help='Verbose mode', action='store_true')
-    parser_list.set_defaults(func=parse_list_vm)
+    parser_list.set_defaults(func=bee_list_vm)
     args = parser.parse_args()
+    debug = args.d
     args.func(args)
+
+if __name__ == "__main__":
+    bee_main()

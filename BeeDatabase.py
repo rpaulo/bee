@@ -81,7 +81,7 @@ class BeeDatabase:
         return self.c.execute('''
             SELECT * from vm WHERE name = "%s"''' % name).fetchone()
 
-    def vm_create(self, name, ram=512, cpus=1, vmtype='freebsd'):
+    def vm_create(self, name, ram, cpus, vmtype):
         self.c.execute('''
             INSERT INTO vm(cdate, name, ram, cpus, type)
             VALUES('%s', '%s', '%d', '%d', '%s')''' %

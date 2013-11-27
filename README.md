@@ -16,7 +16,7 @@ virtual machines.  It's meant to be an easy to use but powerful tool.
 	  {create,start,stop,destroy,modify,list}
 	    create              Create a new bhyve VM
 	    start               Start a bhyve VM
-	    stop                Stopa bhyve VM
+	    stop                Stop a bhyve VM
 	    destroy             Destroy a bhyve VM
 	    modify              Modify a bhyve VM
 	    list                List available VMs

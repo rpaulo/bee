@@ -184,7 +184,7 @@ def bee_main():
     parser_start.set_defaults(func=bee_start_vm)
   
     parser_stop = subparsers.add_parser('stop',
-            help='Stopa bhyve VM')
+            help='Stop a bhyve VM')
     parser_stop.set_defaults(func=bee_stop_vm)
     
     parser_destroy = subparsers.add_parser('destroy',

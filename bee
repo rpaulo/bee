@@ -158,6 +158,7 @@ def bee_main():
     parser = argparse.ArgumentParser(description='bhyve configuration tool')
     parser.add_argument('-d', help='Enable debugging', action='store_true')
     subparsers = parser.add_subparsers()
+    
     parser_create = subparsers.add_parser('create', 
             help='Create a new bhyve VM')
     parser_create.add_argument('-c', metavar='CPUs',
@@ -174,19 +175,26 @@ def bee_main():
             help='network type (e.g.: "auto-bridge")')
     parser_create.add_argument('name', help='VM name')
     parser_create.set_defaults(func=bee_create_vm)
+   
     parser_start = subparsers.add_parser('start',
             help='Start a bhyve VM')
     parser_start.add_argument('name')
+    parser_start.add_argument('-g', metavar='port',
+            help='GDB port')
     parser_start.set_defaults(func=bee_start_vm)
+  
     parser_stop = subparsers.add_parser('stop',
             help='Stopa bhyve VM')
     parser_stop.set_defaults(func=bee_stop_vm)
+    
     parser_destroy = subparsers.add_parser('destroy',
             help='Destroy a bhyve VM')
     parser_destroy.set_defaults(func=bee_destroy_vm)
+   
     parser_modify = subparsers.add_parser('modify',
             help='Modify a bhyve VM')
     parser_modify.set_defaults(func=bee_modify_vm)
+    
     parser_list = subparsers.add_parser('list',
             help='List available VMs')
     parser_list.add_argument('-v', help='Verbose mode', action='store_true')

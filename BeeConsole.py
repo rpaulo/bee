@@ -29,14 +29,25 @@ import threading
 import paramiko
 
 class BeeConsole(paramiko.ServerInterface):
-    def __init__(self):
-        self.host_key = paramiko.RSAKey(filename='rsa.key')
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind(('', 2201))
-        self.sock.listen(100)
+    def __init__(self, key=None):
         self.event = threading.Event()
-        
+
+    def set_key(self, key):
+        self.priv_key = key
+
+    def generate_key(self):
+        return paramiko.DSSKey.generate(bits=1024)
+
+    def init_server(self, port):
+        self.sockv4 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sockv4.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sockv4.bind(('', port))
+        self.sockv4.listen(100)
+        self.sockv6 = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        self.sockv6.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sockv6.bind(('', port))
+        self.sockv6.listen(100)
+ 
     def check_channel_request(self, kind, chanid):
         if kind == 'session':
             return paramiko.OPEN_SUCCEEDED
@@ -61,18 +72,39 @@ class BeeConsole(paramiko.ServerInterface):
                                   pixelheight, modes):
         return True
 
+    def _handle_clients(self, socket):
+        while 1:
+            # XXX error handling
+            client, addr = socket.accept()
+            t = paramiko.Transport(client)
+            t.add_server_key(self.priv_key)
+            t.load_server_moduli()
+            try:
+                t.start_server(server=self)
+            except:
+                client.close()
+                continue
+            chan = t.accept(20)
+            self.event.wait(10)
+            chan.send('test')
+            client.close()
+    
     def wait_session(self):
-        # XXX error handling
-        client, addr = self.sock.accept()
-        t = paramiko.Transport(client)
-        t.add_server_key(self.host_key)
-        t.load_server_moduli()
-        t.start_server(server=self)
-        chan = t.accept(20)
-        self.event.wait(10)
-        chan.send('test')
+        self.v4thread = threading.Thread(target=self._handle_clients, 
+                args=(self.sockv4,))
+        self.v6thread = threading.Thread(target=self._handle_clients, 
+                args=(self.sockv6,))
+        self.v4thread.start()
+        self.v6thread.start()
+        self.v4thread.join()
+        self.v6thread.join()
+
+    def stop_session(self):
+        pass
 
 if __name__ == "__main__":
     c = BeeConsole()
+    c.set_key(c.generate_key())
+    c.init_server(port=2200)
     c.wait_session()
 

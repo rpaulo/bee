@@ -103,11 +103,12 @@ def bee_create_tap(bridged=False):
             pass
     lastunit += 1
     ifname = 'tap%d' % lastunit
-    ifconfigc_args = ['ifconfig', ifname, 'create']
+    ifconfigc_args = ['ifconfig', ifname, 'create', 'up']
     if subprocess.call(ifconfigc_args) != 0:
         return None
     if bridged:
         pass
+    return ifname
 
 def bee_start_vm(args):
     bhyveload_args = ['bhyveload']
@@ -133,10 +134,16 @@ def bee_start_vm(args):
             bhyve_args.append('-S')
         else:
             bhyve_args.append('-s')
+        if row['driver'] == 'virtio-net':
+            if row['options'] == 'auto-bridge':
+                tap = bee_create_tap(bridged=True)
+                if tap != None:
+                    slot += "," + tap
         bhyve_args.append(slot)
         if row['driver'] == "ahci-hd":
             bhyveload_args.append('-d')
             bhyveload_args.append(row['config'])
+
     bhyveload_args.append(vm)
     bhyve_args.append(vm)
     bhyvectl_args.append('--destroy')

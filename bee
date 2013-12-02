@@ -27,6 +27,7 @@
 import argparse  
 import subprocess
 import re
+import string
 
 from BeeDatabase import *
 
@@ -41,13 +42,16 @@ def bee_create_vm(args):
             int(ram)
         except:
             try:
-                int(ram[0:-1])
+                iram = int(ram[0:-1])
             except:
                 print 'Invalid RAM size: ' + ram
                 return
             else:
-                suffix = ram[-1]
-                # XXX
+                suffix = string.lower(ram[-1])
+                if suffix == 'g':
+                    ram = str(iram * 1024)
+                elif suffix == 'm':
+                    ram = str(iram)
     else:
         ram = "512"
     cpus = args.c

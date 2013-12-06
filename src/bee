@@ -29,7 +29,7 @@ import subprocess
 import re
 import string
 
-from BeeDatabase import *
+from Bee.BeeDatabase import *
 
 def bee_create_vm(args):
     if debug:
@@ -134,11 +134,22 @@ def bee_start_vm(args):
             bhyve_args.append('-S')
         else:
             bhyve_args.append('-s')
+    
+        # Parse networking device
         if row['driver'] == 'virtio-net':
             if row['options'] == 'auto-bridge':
-                tap = bee_create_tap(bridged=True)
+                # XXX need to lookup default interface
+                create_tap = True
+                bridged = True
+            elif row['options'] == 'auto-tap':
+                create_tap = True
+                bridged = False
+            if create_tap:
+                tap = bee_create_tap(bridged)
                 if tap != None:
                     slot += "," + tap
+                else:
+                    slot = ""
         bhyve_args.append(slot)
         if row['driver'] == "ahci-hd":
             bhyveload_args.append('-d')

@@ -58,7 +58,9 @@ class BeeDatabase:
                 cdate TEXT,  
                 ram INT,
                 cpus INT, 
-                type TEXT)''')
+                type TEXT,
+                console_port INT,
+                console_key TEXT)''')
         self.c.commit()
 
     def _create_pci_slots_table(self):
@@ -103,5 +105,7 @@ class BeeDatabase:
 
 if __name__ == "__main__":
     db = BeeDatabase()
-    print db.vm_list()
+    for vm in db.vm_list():
+        print vm
+        print db.vm_list_pci(vm['name'])
 

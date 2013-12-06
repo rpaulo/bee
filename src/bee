@@ -29,7 +29,7 @@ import subprocess
 import re
 import string
 
-from Bee.BeeDatabase import *
+from bee.BeeDatabase import *
 
 def bee_create_vm(args):
     if debug:

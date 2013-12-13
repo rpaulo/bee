@@ -1,6 +1,6 @@
 #!/usr/bin/env python 
 #
-# Copyright (c) 2013 Rui Paulo <rpaulo@FreeBSD.org>
+# Copyright (c) 2013 Rui Paulo <rpaulo@felyko.com>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without

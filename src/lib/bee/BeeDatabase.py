@@ -28,13 +28,16 @@ import time
 import os
 import sqlite3
 
+import BeeConstants
+
 class BeeDatabase:
     def __init__(self):
-        self.dbname = "bee.sqlite"
+        self.dbname = BeeConstants.BEE_DBPATH
         try:
             os.stat(self.dbname)
         except:
             self.c = self._create_conn()
+            self._create_bee_table(BeeConstants.BEE_SCHEMA_VERSION)
             self._create_vm_table()
             self._create_pci_slots_table()
         else:
@@ -50,6 +53,13 @@ class BeeDatabase:
         conn = sqlite3.connect(self.dbname)
         conn.row_factory = self._dict_factory
         return conn
+
+    def _create_bee_table(self, schema):
+        self.c.execute('''
+            CREATE TABLE bee( 
+                schema INT)''')
+        self.c.execute('INSERT INTO bee(schema) VALUES("%d")' % schema)
+        self.c.commit()
 
     def _create_vm_table(self): 
         self.c.execute('''
